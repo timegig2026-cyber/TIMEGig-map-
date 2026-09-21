@@ -1,0 +1,53 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Extended user profile information including verification status and documents.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "firstName": { "type": "string", "maxLength": 100 },
+        "middleName": { "type": "string", "maxLength": 100 },
+        "surname": { "type": "string", "maxLength": 100 },
+        "dateOfBirth": { "type": "string", "format": "date" },
+        "address": { "type": "string", "maxLength": 500 },
+        "contactNumber": { "type": "string", "maxLength": 20 },
+        "email": { "type": "string", "format": "email" },
+        "photoURL": { "type": "string", "description": "URL to the profile picture" },
+        "socialLinks": {
+          "type": "array",
+          "items": { "type": "string", "format": "uri" }
+        },
+        "idDocumentURL": { "type": "string", "description": "URL to the uploaded ID document" },
+        "verificationStatus": {
+          "type": "string",
+          "enum": ["unsubmitted", "pending", "approved", "rejected"]
+        },
+        "isVerified": { "type": "boolean" },
+        "submittedAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "firstName", "surname", "email", "verificationStatus"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "System administrators with verification privileges.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" }
+      },
+      "required": ["uid", "email"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "UserProfile",
+      "description": "User profile data"
+    },
+    "/admins/{uid}": {
+      "schema": "Admin",
+      "description": "Admin privileges mapping"
+    }
+  }
+}

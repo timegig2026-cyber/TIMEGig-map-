@@ -1,0 +1,84 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == "timegig2026@gmail.com"
+      );
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // --- Entity Validations ---
+
+    function isValidUserProfile(data) {
+      return data.uid == request.auth.uid
+        && data.firstName is string && data.firstName.size() <= 100
+        && (data.get('middleName', null) == null || (data.middleName is string && data.middleName.size() <= 100))
+        && data.surname is string && data.surname.size() <= 100
+        && data.email is string && data.email.size() <= 150
+        && (data.get('address', null) == null || (data.address is string && data.address.size() <= 500))
+        && (data.get('contactNumber', null) == null || (data.contactNumber is string && data.contactNumber.size() <= 20))
+        && (data.get('photoURL', null) == null || (data.photoURL is string && data.photoURL.size() <= 2000))
+        && (data.get('idDocumentURL', null) == null || (data.idDocumentURL is string && data.idDocumentURL.size() <= 2000))
+        && data.verificationStatus in ['unsubmitted', 'pending', 'approved', 'rejected']
+        && data.isVerified is bool
+        && (data.get('socialLinks', []) is list && data.socialLinks.size() <= 20);
+    }
+
+    // --- Match Groups ---
+
+    match /users/{uid} {
+      allow get: if isOwner(uid) || isAdmin();
+      allow list: if isAdmin() && existing().verificationStatus == 'pending';
+      
+      allow create: if isOwner(uid) 
+        && isValidUserProfile(incoming())
+        && incoming().verificationStatus == 'unsubmitted'
+        && incoming().isVerified == false;
+
+      allow update: if (isOwner(uid) && isValidUserProfile(incoming()) && (
+        // Action: Submit for review
+        (existing().verificationStatus in ['unsubmitted', 'rejected'] && incoming().verificationStatus == 'pending' && 
+         incoming().diff(existing()).affectedKeys().hasOnly(['firstName', 'middleName', 'surname', 'dateOfBirth', 'address', 'contactNumber', 'socialLinks', 'idDocumentURL', 'photoURL', 'verificationStatus', 'submittedAt', 'updatedAt'])) ||
+        // Action: Update profile details
+        (existing().verificationStatus == 'unsubmitted' && 
+         incoming().diff(existing()).affectedKeys().hasOnly(['firstName', 'middleName', 'surname', 'dateOfBirth', 'address', 'contactNumber', 'socialLinks', 'photoURL', 'updatedAt']))
+      )) || (isAdmin() && (
+        // Action: Admin Review (Approve/Reject)
+        (incoming().diff(existing()).affectedKeys().hasOnly(['verificationStatus', 'isVerified', 'updatedAt']))
+      ));
+    }
+
+    match /admins/{uid} {
+      allow read: if isSignedIn();
+      allow write: if false; // Only manual bootstrapping
+    }
+  }
+}

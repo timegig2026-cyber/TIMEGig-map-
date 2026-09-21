@@ -1,0 +1,6 @@
+{
+  "name": "Profile Template App",
+  "description": "Live world map application with 3D navigation for GiGs, Seekers, and Profile features.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
